@@ -40,7 +40,7 @@ From above we can find two missing patterns of the original data. The first patt
 
 Since this is the original data, we'll need some process to clean the data and remove the columns that're not very meaningful. 
 
-We did our cleaning using python. And here's the link of our data cleaning file.(Link!!!!!)
+We did our cleaning using python. And here's the link of our data cleaning file.       (https://github.com/ws2512/EDAV-Final-Project/blob/master/EDAV_Data%20Cleaning.ipynb)
 
 Of course we need to remove the features which has over 99% missings. And we found there're some features having the constant value, which can't provide too much information and need to be removed. And there's something interesting. The feature 'Borough' contains basically the same information as the feature 'Park Borough'. And 'X Coordinate(State Plane)' is highly correlated with 'Longitude' while 'Y Coordinate(State Plane)' is highly correlated with 'Latitude'. Besides, the feature 'Location' is just repeating the information contained in the 'Longitude' and 'Latitude' feature. Therefore, features redundant like these are also the ones we need to drop.
 
@@ -317,7 +317,7 @@ ggplot(plot_data1, aes(Year, n))+ facet_wrap(~Descriptor,scales = "free") + geom
 
 We also want to explore the tendency change of each reason over the last 8 years. It is clear that in 2011, there is only a few records of complaints due to unknown missing. For complaint “Unknown odor/taste in drinking water (QA6)”, there is no records before 2012. Complaints about “Unknown odor/taste in drinking water (QA6)” and “Taste/Odor, Chemical (QA2)” both have reached peak in 2017. “Water With Other Particales (Use Comments)” mostly happends in 2013, while most number of people complain “Cloudy Or Milky Water (QB1)” in 2012.
 
-```{r}
+```{r,fig.width = 11, fig.height = 6}
 library(gridExtra)
 library(viridis)
 theme_heat <- theme_classic(12) +
@@ -332,7 +332,7 @@ Next, we use heatmap to explore the density of different reasons of complaints o
 
 Then, let's look at the reason people complained most in total, “Cloudy Or Milky Water (QB1)”, and explore the geographical changes in the past five years of this reason.
 
-```{r}
+```{r fig.height=14, fig.width=20}
 library(ggmap)
 five <- subset(a_data, Year==2013| Year==2014| Year==2015| Year==2016| Year==2017)
 fbbox <- make_bbox(lon = five$Longitude, lat = five$Latitude, f = .1)
