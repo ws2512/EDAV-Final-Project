@@ -1,0 +1,382 @@
+---
+title: "EDAV Final Project: Exploratory Data Analysis of Water Quality Complaints Data"
+author: Wenting Su, ws2512; Tianhui Shen, ts3088; Kewei Liu, kl2987; Qinwei Zhao, qz2307
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE,
+                      message = FALSE)
+```
+
+
+
+### 1. Introduction
+Water quality is one of the major concerns in modern city. How to spot and take action in time and prevent water quality issue happening again are important for government and local residents. In this project, we are interested in water quality in different locations by looking at data collected by NYC 311. The dataset we are using in this project is the records of water quality complaints reported by local residents, which could reflect water quality problem in each area. The variables are mainly either describing the location of the events or the time of the event. So, we are mainly focusing on the distribution of water quality issue in geographical space and in time series.
+
+In our team, each has different responsibilities:     
+Qinwei Zhao: data description, data quality analysis       
+Wenting Su: data quality analysis, main analysis for data, report integration       
+Tianhui Shen: main analysis for data, report integration      
+Kewei Liu: interactive         
+Finally, we work together to write up the report.       
+
+
+### 2. Description of Data
+We obtained our dataset from NYC Open Data. This data is based on 311 service requests and updated daily on NYC Open Data. (https://data.cityofnewyork.us/Environment/Water-Quality-complaints/qfe3-6dkn). Due to the data is real-time updated, we collected the data from 2010 to April 6th, 2018 and downloaded its CSV format.
+
+The dataset has 8959 rows of records and 52 features. For each record of water quality complaint, it mainly has reporting date (created date, closed date, etc.), reporting location (latitude, longitude, etc.) and complaint content(descriptor). 
+
+
+### 3. Analysis of Data Quality
+
+```{r, fig.width = 8, fig.height = 6}
+original_data <- read.csv("Water_Quality_complaints.csv", stringsAsFactors=FALSE)
+library(extracat)
+visna(original_data, sort = "b") 
+```
+
+From above we can find two missing patterns of the original data. The first pattern is that some columns are completely missing in all the rows. The second pattern is that besides the completely missing columns, some rows have a small number of missings in other columns. 
+
+Since this is the original data, we'll need some process to clean the data and remove the columns that're not very meaningful. 
+
+We did our cleaning using python. And here's the link of our data cleaning file.(Link!!!!!)
+
+Of course we need to remove the features which has over 99% missings. And we found there're some features having the constant value, which can't provide too much information and need to be removed. And there's something interesting. The feature 'Borough' contains basically the same information as the feature 'Park Borough'. And 'X Coordinate(State Plane)' is highly correlated with 'Longitude' while 'Y Coordinate(State Plane)' is highly correlated with 'Latitude'. Besides, the feature 'Location' is just repeating the information contained in the 'Longitude' and 'Latitude' feature. Therefore, features redundant like these are also the ones we need to drop.
+
+Now let's look at the cleaned data and see if we can find something new.
+
+```{r, fig.width = 8, fig.height = 6}
+data <- read.csv("data_cleaned.csv", stringsAsFactors=FALSE)
+visna(data, sort = "b") 
+```
+
+After the cleaning, now the data has 17 variables and 8959 observations. From above we can see, now there're just a small number of rows with missings and the missings are in the three columns: 'Incident.Zip', 'Latitude' and 'Longitude'. Since the number of the missing rows are small and latitude and longitude are important features in our following analysis, so we decided to remove these rows with missings.
+
+```{r}
+data <- na.omit(data)
+```
+
+The number of rows with missings is 24. After removing these rows, now we have 17 variables and 8935 observations. 
+```{r}
+names(data) <- gsub("\\.", "_", names(data))
+```
+
+Also, we need to replace the '.' in column name by '_', in case of function conflicts.
+
+```{r}
+library(dplyr)
+library(tidyverse)
+data <- separate(data, Created_Date, c("Created_date", "Created_time", "Created_Am_or_Pm"), sep = " ")
+data <- separate(data, Closed_Date, c("Closed_date", "Closed_time", "Closed_Am_or_Pm"), sep = " ")
+data <- separate(data, Created_date, c("Created_Month", "Created_Day", "Created_Year"), sep = "/", remove = FALSE)
+
+```
+
+For plotting purpose, we decide to split the 'Created_date' and 'Closed_date' columns into 'Created_date', 'Created_time', 'Created_Am_or_Pm', 'Closed_date', 'Closed_time', 'Closed_Am_or_Pm'. And then, we split the 'Created_date' into the seperated columns "Created_Month", "Created_Day", "Created_Year".
+
+### 4. Main Analysis
+
+First, we want to see the number of the complaints each year. And we can see that the number of complaints in 2011 and 2018 are much smaller than other years'. For year 2018, we know this is because this year just passed one third, so the number of complaints will be smaller than that of a whole year. But for year 2011, the complaints are much less than other years'. And from the number of complaints of other years', this doesn't seem like the complaints had a big decrease in year 2011. It's more like for some unknown reason, this year's data has a big missing. 
+
+```{r}
+ggplot(data,aes(x=Created_Year)) +
+  geom_bar(fill="skyblue")
+```
+
+Then we'll look at the complaints according to the different boroughs in New York. And it turns out that Brooklyn has the highest number of complaints, which is more than twice as the number of Bronx's and Staten Island's. And Queens has the second highest number of complaints. 
+
+```{r}
+ggplot(data,aes(x=Borough)) +
+  geom_bar(fill="skyblue")
+```
+
+Next, we'll go deeper into the reason of complaints.
+
+#### Reason of Complaints
+```{r}
+
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Chemical (QA2)","Clear Water With Other Particles (Use Comments) (QEZ)", "Cloudy Or Milky Water (QB1)", after = Inf))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Chlorine (QA1)",after = 9))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Defective Water Sampling Station (QSS)","Other Water Problem (Use Comments) (QZZ)","Oil, Grease In Water (QD1)",after = 1))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Musty/Stale (QA4)","Taste/Odor, Sewer (QA5)",after = 5))
+
+ggplot(data,aes(x=Descriptor)) +
+  geom_bar(fill="skyblue")+
+  xlab("Reason of Complains")+
+  coord_flip()
+```
+
+To better present the graph, we adjustes the order of categories according to the count of complaints from the most to the least.
+And from the graph, there are totally 14 main categories of water complaints. We can see the category 'Cloudy Or Milky Water' has received most complaints which are more than 1250. The second main reason for complaint is 'Clear Water with Other Particles' which required users to describe the particles using comments. This category also receives more than 1000 complaints. 
+
+```{r}
+ggplot(data,aes(x=Descriptor)) +
+  geom_bar(fill="skyblue")+
+  xlab("Reason of Complains")+
+  facet_wrap(~Borough)+
+  coord_flip()
+```
+
+Now let's see things by faceting on Boroughs. In Manhattan and Queens, 'Cloudy Or Milky Water' is the main reason for complaints, over 300, which is much more than other reasons. In Brooklyn, 'Clear Water with Other Particles' has become the first reason which is a little more than the second reason 'Cloudy Or Milky Water'. In Staten Island, the first nine reasons have relatively small differences in count.
+
+
+We decided to use stacked bar chart to explore the complaints' distribution, so we can see not only the distribution of each month, but also the percentage of each complaint in each month.
+
+
+```{r, fig.width = 8, fig.height = 6}
+
+ggplot(data, aes(x=Created_Month)) +
+  geom_bar(aes( y=(..count..)/sum(..count..), fill = Descriptor))+
+  labs(y = "Percent")
+
+```
+
+From the perspective of month, we can see the January has the highest number of complaints while December has the lowest number of complaints. And the number of complaints in the latter half of year is smaller than that in the former half of year.
+
+Now let's look at the complaints per moth and see if we can find some seasonal patterns. From the graphs above, we can find that in the former half of a year, people complained most about Cloudy Or Milky Water while this is not the most complained thing in the latter half of a year. In the latter half of year, Clear Water With Other Particles (Use Comments) is the most complained thing in July, August, September, October and December, people complained on Taste/Odor, Chemical most in the other month.
+
+The most difficulty we meet is how to set the colors of the complaint reasons. For now, the color in this graph is kind of hard for people to figure out. For example, it's hard to tell the different between Cloudy Or Milky Water and Clear Water With Other Particles (Use Comments). And the color we use now is not color-blind friendly. We tried to change the color to a more color-blind friendly one, but the color palettes we could find usually consisted of no more than nine colors or less which couldn't satisfy with our 14 reasons.
+
+
+#### Reason Exploring
+
+For the Reason Exploring, we mainly focus on the top four reasons of complaints in total:   
+1. Cloudy Or Milky Water (QB1)   
+2. Clear Water With Other Particles (QEZ)   
+3. Taste/Odor, Chemical (QA2)   
+4. unknown odor/taste in drinking water (QA6)   
+
+So we took the subset of these four reasons and used it in our later plots.
+
+```{r, fig.width = 8, fig.height = 6}
+a_data <- subset(data, Descriptor=="Cloudy Or Milky Water (QB1)"| Descriptor=="Clear Water With Other Particles (Use Comments) (QEZ)"| Descriptor=="Taste/Odor, Chemical (QA2)"| Descriptor=="unknown odor/taste in drinking water (QA6)")
+
+plot_data <- a_data%>% group_by(Descriptor, Borough) %>% count(Borough)
+plot_data <- plot_data%>% group_by(Descriptor) %>% mutate(percentage = n/sum(n))
+
+ggplot(plot_data,aes(Descriptor, percentage, fill = Borough)) +geom_bar(stat = "identity", position = "dodge")+ ylab("Percent") +coord_flip()
+```
+
+To explore the relation between reasons and boroughs, we use grouped bar chart to exhibit our results. So we can clearly see for each reason which borough has the most complaints.
+
+For 'Cloudy Or Milky Water (QB1)' reason, Manhattan has received about 26.8% of total complaints, Queens has 26.4%, Brooklyn has 24.2%, Bronx has 14.6% and Staten Island has 8%. For all reasons other than 'Cloudy Or Milky Water (QB1)', most of the complains are received from Brooklyn. And Staten Island receives least complaints on all the four reasons.
+
+```{r}
+
+ggplot(a_data,aes(Descriptor, fill = Created_Am_or_Pm)) +
+  geom_bar( position = "dodge")+ 
+  ylab("Count") + 
+  coord_flip()
+
+```
+
+From this bar chart, we can conclude that for all four reasons, most of complaints are received after 12:00 pm. So all of the complaints are received in the afternoon or evening.
+
+```{r}
+a_data$Created_date <- as.Date(a_data$Created_date, "%m/%d/%Y")
+a_data$Year<-as.numeric(a_data$Created_Year)
+a_data$Closed_date <- as.Date(a_data$Closed_date, "%m/%d/%Y")
+plot_data1 <- a_data%>% group_by(Year, Descriptor) %>% count()
+ggplot(plot_data1, aes(Year, n))+ facet_wrap(~Descriptor,scales = "free") + geom_line() +ylab("Count")
+```
+
+We also want to explore the tendency change of each reason over the last 8 years. It is clear that in 2011, there is only a few records of complaints due to unknown missing. For complaint "Unknown odor/taste in drinking water (QA6)", there is no records before 2012. Complaints about "Unknown odor/taste in drinking water (QA6)" and "Taste/Odor, Chemical (QA2)" both have reached peak in 2017. "Water With Other Particales (Use Comments)" mostly happends in 2013, while most number of people complain "Cloudy Or Milky Water (QB1)" in 2012.
+
+```{r}
+plot_data2 <- a_data%>% group_by(Incident_Zip, Descriptor) %>% count()
+ggplot(plot_data2, aes(Incident_Zip,n))+ facet_wrap(~Descriptor,scales = "free") + geom_point()+ylab("Count")
+```
+
+Then we want to explore the count of different reasons over zipcode. We can find that the complaints are mainly received from areas of zipcode 10000-10500 and 11000-11500. 
+
+```{r,fig.width = 11, fig.height = 6}
+library(gridExtra)
+library(viridis)
+theme_heat <- theme_classic(12) +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank())
+ggplot(plot_data, aes(x = Borough, y = Descriptor, fill = n)) +
+  geom_tile() +scale_fill_viridis(name = "Count") +
+  geom_text(aes(label = round(n, 2)), size = 5,colour="red") +theme_heat
+```
+
+Next, we use heatmap to explore the density of different reasons of complaints over boroughs. The darker the color, the less the counts. We can see the light color areas are mainly in the Brooklyn, Manhattan and Queens area, for reasons "Cloudy Or Milky Water (QB1)" and "Water With Other Particales (Use Comments)". 
+
+Then, it is important to explore the geographical changes in the past five years for those four reasons. 
+
+```{r fig.height=14, fig.width=20}
+library(ggmap)
+five <- subset(a_data, Year==2013| Year==2014| Year==2015| Year==2016| Year==2017)
+fbbox <- make_bbox(lon = five$Longitude, lat = five$Latitude, f = .1)
+fmap <- get_map(location = fbbox, maptype = "roadmap", source = "google")
+ggmap(fmap)+ geom_point(data=five[five$Descriptor=="Cloudy Or Milky Water (QB1)",], aes(x = Longitude,  y = Latitude, color = Borough), alpha = 0.8 , size = 3) + facet_wrap(~Year)+ggtitle("Cloudy Or Milky Water (QB1) in 2013 to 2017")
+
+```
+
+First let's look at the Cloudy Or Milky Water (QB1), from the map we can see that complaints on this reason in Manhattan area has increased year by year. And we can also find out that in 2013, the complaints in Brooklyn mainly focus on the central area in Brooklyn, and have spread over the following years. In 2017, the complaints cover the whole area of Brooklyn.
+
+```{r fig.height=14, fig.width=20}
+ggmap(fmap)+ geom_point(data=five[five$Descriptor=="Clear Water With Other Particles (Use Comments) (QEZ)",], aes(x = Longitude,  y = Latitude, color = Borough), alpha = 0.8 , size = 3) + facet_wrap(~Year)+ggtitle("Clear Water With Other Particles (Use Comments) (QEZ) in 2013 to 2017")
+```
+
+For Clear Water With Other Particles (Use Comments) (QEZ), the complaints haven't changed a lot during the five years. The distributions on the five boroughs during 2013 to 2017 are basically the same.
+
+```{r fig.height=14, fig.width=20}
+ggmap(fmap)+ geom_point(data=five[five$Descriptor=="Taste/Odor, Chemical (QA2)",], aes(x = Longitude,  y = Latitude, color = Borough), alpha = 0.8 , size = 3) + facet_wrap(~Year)+ggtitle("Taste/Odor, Chemical (QA2) in 2013 to 2017")
+```
+
+For complaint "Taste/Odor, Chemical", there is no big changes over five years. 
+
+```{r fig.height=14, fig.width=20}
+ggmap(fmap)+ geom_point(data=five[five$Descriptor=="unknown odor/taste in drinking water (QA6)",], aes(x = Longitude,  y = Latitude, color = Borough), alpha = 0.8 , size = 3) + facet_wrap(~Year)+ggtitle("unknown odor/taste in drinking water (QA6) in 2013 to 2017")
+```
+
+For complaint "unknown odor/taste in drinking water", the counts in Manhattan area increasing year by year. This situation also happens in Bronx and Brooklyn areas. 
+
+#### Action for complaints
+```{r}
+a_data <- a_data %>% mutate( diff_date= difftime(Closed_date,
+Created_date, units = "days"))
+b <- a_data[a_data$diff_date<500,]
+b <- na.omit(b)
+ggplot(b, aes(diff_date)) + geom_histogram(color = "blue",fill = "lightblue") +facet_wrap(~Descriptor,scales = "free")
+```
+
+Finally, we want to exolore How long it takes for NYC311 to take action in each case. Based on the case creating date and closing date, we calculate the difference to represent the length of action. We can clearly see for most cases, it only takes days to close, while some need to take months. Most cases can be closed in 3 months. There are also some cases taking over years to process. In this case, we consider them as outliers and dropped. 
+
+### 5. Executive Summary
+
+#### Water Quality Complaints in NYC
+
+Water quality is one of the major concerns in modern city. As ordinary people, we all have some experiences with the unpleasant water quality. Since we live in New York, so we want to explore the water quality complaints of New York and find what water quality issues people in NY encounter in their life and how people's complaints change over the years. The data we use are from the 311 service requests and updated daily on NYC Open Data.
+
+First, we want to see the number of the complaints each year. And we can see that the number of complaints in 2011 and 2018 are much smaller than other years’. For year 2018, we know this is because this year just passed one third, so the number of complaints will be smaller than that of a whole year. For year 2011, the data has a big missing for some unknown reason.
+
+```{r}
+ggplot(data,aes(x=Created_Year)) +
+  geom_bar(fill="skyblue")
+```
+
+Then we’ll look at the complaints according to the different boroughs in New York. And it turns out that Brooklyn has the highest number of complaints, which is more than twice as the number of Bronx’s and Staten Island’s. And Queens has the second highest number of complaints.
+
+```{r}
+ggplot(data,aes(x=Borough)) +
+  geom_bar(fill="skyblue")
+```
+
+Next, we’ll go deeper into the reason of complaints.
+
+####Reason of Complaints
+
+```{r}
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Chemical (QA2)","Clear Water With Other Particles (Use Comments) (QEZ)", "Cloudy Or Milky Water (QB1)", after = Inf))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Chlorine (QA1)",after = 9))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Defective Water Sampling Station (QSS)","Other Water Problem (Use Comments) (QZZ)","Oil, Grease In Water (QD1)",after = 1))
+data <- data %>%mutate(Descriptor = fct_relevel(Descriptor, "Taste/Odor, Musty/Stale (QA4)","Taste/Odor, Sewer (QA5)",after = 5))
+
+ggplot(data,aes(x=Descriptor)) +
+  geom_bar(fill="skyblue")+
+  xlab("Reason of Complains")+
+  coord_flip()
+
+```
+
+And from the graph, there are totally 14 main categories of water complaints. We can see the category ‘Cloudy Or Milky Water’ has received most complaints which are more than 1250. The second main reason for complaint is ‘Clear Water with Other Particles’ which required users to describe the particles using comments. This category also receives more than 1000 complaints.
+
+```{r}
+ggplot(data,aes(x=Descriptor)) +
+  geom_bar(fill="skyblue")+
+  xlab("Reason of Complains")+
+  facet_wrap(~Borough)+
+  coord_flip()
+```
+
+Now let’s see things by looking at different Boroughs. In Manhattan and Queens, ‘Cloudy Or Milky Water’ is the main reason for complaints, over 300, which is much more than other reasons. In Brooklyn, ‘Clear Water with Other Particles’ has become the first reason which is a little more than the second reason ‘Cloudy Or Milky Water’. In Staten Island, the first nine reasons have relatively small differences in count.
+
+####Reason Exploring
+
+```{r}
+ggplot(a_data,aes(Descriptor, fill = Created_Am_or_Pm)) +
+  geom_bar( position = "dodge")+ 
+  ylab("Count") + 
+  coord_flip()
+
+```
+
+From this graph, we can conclude that for all four reasons, most of complaints are received after 12:00 pm. So all of the complaints are received in the afternoon or evening.
+
+```{r}
+a_data$Created_date <- as.Date(a_data$Created_date, "%m/%d/%Y")
+a_data$Year<-as.numeric(a_data$Created_Year)
+a_data$Closed_date <- as.Date(a_data$Closed_date, "%m/%d/%Y")
+plot_data1 <- a_data%>% group_by(Year, Descriptor) %>% count()
+ggplot(plot_data1, aes(Year, n))+ facet_wrap(~Descriptor,scales = "free") + geom_line() +ylab("Count")
+
+```
+
+We also want to explore the tendency change of each reason over the last 8 years. It is clear that in 2011, there is only a few records of complaints due to unknown missing. For complaint “Unknown odor/taste in drinking water (QA6)”, there is no records before 2012. Complaints about “Unknown odor/taste in drinking water (QA6)” and “Taste/Odor, Chemical (QA2)” both have reached peak in 2017. “Water With Other Particales (Use Comments)” mostly happends in 2013, while most number of people complain “Cloudy Or Milky Water (QB1)” in 2012.
+
+```{r}
+library(gridExtra)
+library(viridis)
+theme_heat <- theme_classic(12) +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank())
+ggplot(plot_data, aes(x = Borough, y = Descriptor, fill = n)) +
+  geom_tile() +scale_fill_viridis(name = "Count") +
+  geom_text(aes(label = round(n, 2)), size = 5,colour="red") +theme_heat
+```
+
+Next, we use heatmap to explore the density of different reasons of complaints over boroughs. The darker the color, the less the counts. We can see the light color areas are mainly in the Brooklyn, Manhattan and Queens area, for reasons “Cloudy Or Milky Water (QB1)” and “Water With Other Particales (Use Comments)”.
+
+Then, let's look at the reason people complained most in total, “Cloudy Or Milky Water (QB1)”, and explore the geographical changes in the past five years of this reason.
+
+```{r}
+library(ggmap)
+five <- subset(a_data, Year==2013| Year==2014| Year==2015| Year==2016| Year==2017)
+fbbox <- make_bbox(lon = five$Longitude, lat = five$Latitude, f = .1)
+fmap <- get_map(location = fbbox, maptype = "roadmap", source = "google")
+ggmap(fmap)+ geom_point(data=five[five$Descriptor=="Cloudy Or Milky Water (QB1)",], aes(x = Longitude,  y = Latitude, color = Borough), alpha = 0.8 , size = 3) + facet_wrap(~Year)+ggtitle("Cloudy Or Milky Water (QB1) in 2013 to 2017")
+```
+
+From the map we can see that complaints on this reason in Manhattan area has increased year by year. And we can also find out that in 2013, the complaints in Brooklyn mainly focus on the central area in Brooklyn, and have spread over the following years. In 2017, the complaints cover the whole area of Brooklyn.
+
+####Action for complaints
+
+```{r}
+a_data <- a_data %>% mutate( diff_date= difftime(Closed_date,
+Created_date, units = "days"))
+b <- a_data[a_data$diff_date<500,]
+b <- na.omit(b)
+ggplot(b, aes(diff_date)) + geom_histogram(color = "blue",fill = "lightblue") +facet_wrap(~Descriptor,scales = "free")
+```
+
+Finally, we want to exolore How long it takes for NYC311 to take action in each case. Based on the case creating date and closing date, we calculate the difference to represent the length of action. We can clearly see for most cases, it only takes days to close, while some need to take months. Most cases can be closed in 3 months. There are also some unusual cases taking over years to process which we consider as anomaly situations.
+
+
+### 6. Interactive Component
+
+Users can interactive with the collapsible tree by clicking on the nodes they are interested in, and the tree will show the corresponding summarized data of another feature. If the user click on the node again, its branches will retract and hide all its sub-branches. It’s very easy to use and you can try clicking on any node. If users click on a node and there aren’t any sub-branches shown, it means that this node is in the last level and it doesn’t have any sub-nodes.
+
+In the interactive part, we used three features of the data, Borough, Descriptor, and whether it was the AM or PM time of the Created Date. We used the collapsible tree to present the total number of complaints for each feature in descending order, how borough affect the complaint reason, and if the complaint calling times(AM or PM) have the same pattern among different borough and descriptor pairs.
+
+From the collapsible tree we can see that Brooklyn had the most complaints, as we had analyzed in part 4. Besides, for all the boroughs, 'Cloudy Or Milky Water' is a serious problem. And 'Clear Water with Other Particles’ is the another main reason for complaints. Moreover, we can see that almost for all borough-descriptor pairs, people are more likely to call for water quality problems in the afternoon or at night. 
+
+For the interactive component part, what we did so far is creating an interactive tree graph to show the relationships between three different features, Borough, Descriptor, and whether it was the AM or PM time of the Created Date. In the future we can try to add in more features. For example, we can consider years as well and add an interactive bottom so users can select which year’s data they what to explore.   
+
+During the process, we tried to create a tree to show the hierarchical relationships between boroughs and zip codes. However, there were too many zip codes, and thus made it difficult to further show the complaint descriptors.
+
+So we think we can try to combine the collapsible tree graph with histogram next. We can use the tree graph to show the hierarchical relations between boroughs, cities, areas with the same zip codes, or even streets(these are all contained in our dataset). And when user click on one node, we can use the histogram to show the number of each water complaint descriptor of its corresponding region. In this way, users can easily see how complaint reasons vary among different regions. 
+
+Link: http://blockbuilder.org/Kewei-Liu/ac0764eaa41befd49b3f72b0072269c5
+
+### 7. Conclusion
+Limitations:    
+*	It seemed that for year 2011, there were lots of data missing.    
+*	We only showed the geographical relations about water complaint reasons of the most recent five years’ data. It was because we find that plotting all the data in one map made the geographical relations very unclear while plotting for each year would produce too many graphs. However, making an interactive choropleth map to show the geographical relation for each year may be a good solution.  
+
+Further Directions:     
+* Combine the collapsible tree graph with histogram to show the hierarchical relations between regions and how water complaint reasons vary among different regions.     
+* Creating an interactive choropleth map to show the geographical relation for each year
+
