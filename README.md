@@ -1,5 +1,8 @@
 # EDAV-Final-Project
 
+In this project we explored the data, Water Quality Complaints in NYC, made some analysis and visualized our findings using R. Also, we created a webpage with d3.js to show our key findings interactively.
+
+
 - EDAV_final project.Rmd contains all the source code and plots.
 - EDAV_final project.html contains all the output.
 - EDAV_Data Cleaning constains the procedures about how we cleaned the source data using python
